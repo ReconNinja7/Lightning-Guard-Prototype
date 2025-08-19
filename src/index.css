@@ -2,41 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* Lightning Guard Design System - Cybersecurity Theme
 All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Dark cybersecurity theme */
+    --background: 222 47% 4%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 222 47% 6%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 222 47% 6%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Electric blue primary */
+    --primary: 195 100% 55%;
+    --primary-foreground: 222 47% 4%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Dark secondary */
+    --secondary: 222 47% 8%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 222 47% 8%;
+    --muted-foreground: 210 20% 70%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Purple accent */
+    --accent: 266 85% 65%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 84.2% 60.2%;
+    /* Danger red */
+    --destructive: 0 75% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 222 47% 12%;
+    --input: 222 47% 8%;
+    --ring: 195 100% 55%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Custom cybersecurity colors */
+    --electric-blue: 195 100% 55%;
+    --electric-glow: 195 100% 70%;
+    --cyber-purple: 266 85% 65%;
+    --threat-red: 0 75% 60%;
+    --safe-green: 142 71% 45%;
+    --warning-amber: 38 92% 50%;
+    
+    /* Lightning effects */
+    --lightning-primary: 195 100% 90%;
+    --lightning-secondary: 266 85% 80%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--electric-blue)), hsl(var(--cyber-purple)));
+    --gradient-lightning: linear-gradient(90deg, transparent 0%, hsl(var(--lightning-primary)) 50%, transparent 100%);
+    --gradient-wave: linear-gradient(180deg, hsl(var(--background)), hsl(222 47% 6%));
+    
+    /* Shadows and glows */
+    --shadow-electric: 0 0 30px hsl(var(--electric-blue) / 0.3);
+    --shadow-cyber: 0 0 40px hsl(var(--cyber-purple) / 0.2);
+    --glow-intense: 0 0 60px hsl(var(--electric-glow) / 0.4);
+
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -101,5 +130,157 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Lightning effects */
+  .lightning-strike {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .lightning-strike::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: var(--gradient-lightning);
+    animation: lightning-flash 3s ease-in-out infinite;
+    opacity: 0;
+  }
+  
+  .lightning-bolt {
+    position: absolute;
+    width: 2px;
+    height: 100vh;
+    background: linear-gradient(to bottom, transparent, hsl(var(--lightning-primary)), transparent);
+    animation: bolt-strike 2s ease-in-out infinite;
+    opacity: 0;
+  }
+  
+  /* Wave animations */
+  .wave {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z' fill='%23' fill-opacity='0.1'/%3E%3C/svg%3E") repeat-x;
+    animation: wave-flow 8s ease-in-out infinite;
+  }
+  
+  .wave:nth-child(2) {
+    animation-delay: -2s;
+    animation-duration: 6s;
+    opacity: 0.7;
+  }
+  
+  .wave:nth-child(3) {
+    animation-delay: -4s;
+    animation-duration: 10s;
+    opacity: 0.5;
+  }
+  
+  /* Glow effects */
+  .electric-glow {
+    box-shadow: var(--shadow-electric);
+    transition: box-shadow 0.3s ease;
+  }
+  
+  .electric-glow:hover {
+    box-shadow: var(--glow-intense);
+  }
+  
+  .cyber-glow {
+    box-shadow: var(--shadow-cyber);
+  }
+  
+  /* Threat level indicators */
+  .threat-safe {
+    background: linear-gradient(135deg, hsl(var(--safe-green)), hsl(var(--safe-green) / 0.8));
+  }
+  
+  .threat-warning {
+    background: linear-gradient(135deg, hsl(var(--warning-amber)), hsl(var(--warning-amber) / 0.8));
+  }
+  
+  .threat-danger {
+    background: linear-gradient(135deg, hsl(var(--threat-red)), hsl(var(--threat-red) / 0.8));
+  }
+}
+
+@layer utilities {
+  .bg-gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .text-electric {
+    color: hsl(var(--electric-blue));
+  }
+  
+  .text-cyber {
+    color: hsl(var(--cyber-purple));
+  }
+  
+  .border-electric {
+    border-color: hsl(var(--electric-blue));
+  }
+}
+
+/* Animation keyframes */
+@keyframes lightning-flash {
+  0%, 90%, 100% {
+    opacity: 0;
+    left: -100%;
+  }
+  5%, 10% {
+    opacity: 1;
+    left: 100%;
+  }
+}
+
+@keyframes bolt-strike {
+  0%, 90%, 100% {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  5%, 15% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes wave-flow {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-1200px);
+  }
+}
+
+@keyframes pulse-electric {
+  0%, 100% {
+    box-shadow: 0 0 30px hsl(var(--electric-blue) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 60px hsl(var(--electric-blue) / 0.6);
+  }
+}
+
+@keyframes cyber-scan {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
   }
 }

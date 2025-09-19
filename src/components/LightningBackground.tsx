@@ -39,7 +39,7 @@ export const LightningBackground = () => {
       ))}
       
       {/* Ambient glow */}
-      <div className="absolute inset-0 bg-gradient-to-b from-electric/5 via-transparent to-cyber/5 animate-pulse-electric" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-electric/5 via-transparent to-cyber/5 animate-pulse-electric pointer-events-none"/>
     </div>
   );
 };

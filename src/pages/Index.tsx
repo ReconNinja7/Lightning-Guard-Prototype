@@ -18,7 +18,7 @@ const Index = () => {
             <div className="p-3 rounded-full bg-gradient-primary electric-glow">
               <Zap className="w-8 h-8 text-primary-foreground" />
             </div>
-            <h1 className="text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            <h1 className="text-4xl font-extrabold bg-gradient-to-r from-electric via-cyber to-electric bg-clip-text text-transparent">
               Lightning Guard
             </h1>
           </div>
@@ -29,14 +29,14 @@ const Index = () => {
           
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
             Protect yourself from phishing, malware, and misinformation with our AI-powered analysis engine. 
-            Get real-time threat assessment and security recommendations.
+            Get real time threat assessment and security recommendations.
           </p>
           
           {/* Feature badges */}
           <div className="flex flex-wrap justify-center gap-4 mb-12">
             {[
               { icon: Shield, label: 'Threat Detection' },
-              { icon: Eye, label: 'Real-time Analysis' },
+              { icon: Eye, label: 'Real time Analysis' },
               { icon: Lock, label: 'Security Reports' },
               { icon: Zap, label: 'Instant Results' }
             ].map(({ icon: Icon, label }) => (

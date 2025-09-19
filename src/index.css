@@ -33,6 +33,9 @@ All colors MUST be HSL.
     --accent: 266 85% 65%;
     --accent-foreground: 210 40% 98%;
 
+  /* Cyber purple (for shields) */
+  --cyber-purple: 266 85% 65%;
+
     /* Danger red */
     --destructive: 0 75% 60%;
     --destructive-foreground: 210 40% 98%;

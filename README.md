@@ -1,9 +1,3 @@
-Perfect 🎯 — a clean **README.md** is exactly what judges and reviewers check first on GitHub. Let’s build you a professional, polished one for your “⚡ Lightning Guard” project.  
-
-Here’s a suggested version you can copy‑paste into your repo:
-
----
-
 # ⚡ Lightning Guard  
 AI‑Powered Threat Detection & Analysis Platform  
 
@@ -132,6 +126,6 @@ Backend (Node.js + Express)
 ---
 
 ## 👥 Team
-- Built by **Team Lightning Guard** ⚡ for the *Gen AI Exchange Hackathon*.  
+- Built by **Team Scrutiny** 🛡️ for the *Gen AI Exchange Hackathon*.  
 - Contributors: Md Farhan Hussain, Arthik Kumar
 

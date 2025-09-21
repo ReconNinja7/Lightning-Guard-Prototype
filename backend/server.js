@@ -13,13 +13,19 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+app.use(cors({
+  origin: "https://lightning-guard.web.app",
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"]
+}));
+
+app.options("*", cors());
+
 app.use(express.json());
 
-// multer memory storage so files are available as buffers
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- Gemini setup ---
 if (!process.env.GEMINI_API_KEY) {
   console.warn("⚠️ GEMINI_API_KEY not set in .env — set GEMINI_API_KEY to call Gemini.");
 }
@@ -29,7 +35,6 @@ function getModel() {
   return genAI.getGenerativeModel({ model: GEMINI_MODEL });
 }
 
-// --- Helpers ---
 const clamp = (n, a = 0, b = 100) => Math.max(a, Math.min(b, n));
 
 function classifyThreatLevel(confidence) {
@@ -95,29 +100,25 @@ function parseConfidenceFromText(text) {
 
 function heuristicConfidence(text) {
   const t = (text || "").toLowerCase();
-  let score = 4; // conservative baseline
+  let score = 4; 
 
   const keywords = [
     "login","password","verify","urgent","suspended","bank","account",
     "credit","ssn","click","reset","payment","confirm","credential"
   ];
 
-  // modest per-keyword weight
   let hits = 0;
   for (const k of keywords) {
     if (t.includes(k)) hits++;
   }
-  score += Math.min(36, hits * 6); // up to +36
+  score += Math.min(36, hits * 6); 
 
-  // URLs contribute but capped
   const urlHits = (t.match(/https?:\/\/[^\s]+/g) || []).length;
   score += Math.min(30, urlHits * 8); // up to +30
 
-  // long suspicious text adds a little
   if (t.length > 1200) score += 5;
   else if (t.length > 600) score += 2;
 
-  // Slight downscale to keep heuristic conservative
   const normalized = Math.round(score * 0.88);
   return clamp(normalized, 0, 100);
 }
@@ -137,9 +138,7 @@ function extractRawTextFromResult(result) {
   }
 }
 
-// --- File text extraction (NO pdf-parse) ---
 async function extractTextFromFileObject(file) {
-  // file: { originalname, buffer, mimetype }
   const { originalname = "", buffer, mimetype = "" } = file;
   const nameLower = (originalname || "").toLowerCase();
 
@@ -167,9 +166,7 @@ async function extractTextFromFileObject(file) {
       }
     }
 
-    // Images -> OCR using temporary file + Tesseract.recognize
     if (mimetype.startsWith("image/") || nameLower.match(/\.(png|jpe?g|bmp|webp)$/)) {
-      // write temp file (Tesseract works well with file path)
       const ext = path.extname(originalname) || ".png";
       const tmpName = `lg_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
       const tmpPath = path.join(os.tmpdir(), tmpName);
@@ -182,17 +179,14 @@ async function extractTextFromFileObject(file) {
         console.warn("OCR failed for", originalname, e?.message || e);
         return "";
       } finally {
-        // try to remove temp
         try { await fsPromises.unlink(tmpPath); } catch {}
       }
     }
 
-    // If PDF -> we explicitly do NOT parse PDFs (per request).
     if (mimetype === "application/pdf" || nameLower.endsWith(".pdf")) {
-      return ""; // caller will handle hinting
+      return "";
     }
 
-    // fallback: attempt utf-8 decode
     try {
       return buffer.toString("utf-8").trim();
     } catch (e) {
@@ -204,7 +198,6 @@ async function extractTextFromFileObject(file) {
   }
 }
 
-// --- Prompt builder ---
 function MASTER_PROMPT(textToAnalyze) {
   return `
 You are a professional cybersecurity analyst. Analyze the text below and respond EXACTLY with the sections shown (plain text only).
@@ -246,7 +239,6 @@ ${textToAnalyze}
 `.trim();
 }
 
-// --- Call Gemini and parse result robustly ---
 async function analyzePromptAndReturnStructured(prompt) {
   const model = getModel();
   const result = await model.generateContent({
@@ -257,7 +249,6 @@ async function analyzePromptAndReturnStructured(prompt) {
   const raw = extractRawTextFromResult(result);
   console.log("=== Gemini raw output ===\n", raw, "\n=== end raw ===");
 
-  // try parse JSON if model returned JSON
   let parsed = null;
   try { parsed = JSON.parse(raw); } catch (_) { parsed = null; }
 
@@ -271,14 +262,12 @@ async function analyzePromptAndReturnStructured(prompt) {
     next_steps = parsed.key_findings ?? parsed.keyFindings ?? parsed.recommendations ?? parsed.next_steps ?? parsed.actions ?? parsed.advice ?? parsed.suggestions;
   }
 
-  // normalize confidence
   if (typeof confidence === "string") {
     const nm = confidence.match(/(\d{1,3}(?:\.\d+)?)/);
     confidence = nm ? clamp(Math.round(Number(nm[1]))) : null;
   }
   if (typeof confidence === "number") confidence = clamp(Math.round(confidence));
 
-  // extract explicit sections if present
   const detailsSection = extractSection(raw, "Analysis Details");
   const keyFindingsSection = extractSection(raw, "Key Findings");
   const secRecsSection = extractSection(raw, "Security Recommendations");
@@ -287,19 +276,16 @@ async function analyzePromptAndReturnStructured(prompt) {
   const shortExplanation = extractSection(raw, "Short Explanation");
   const categorySection = extractSection(raw, "Threat Category");
 
- // --- CONFIDENCE: robust parsing + conservative combining ---
 const confFromSection = parseConfidenceFromText(confSection);
 if (confFromSection != null) {
   confidence = confFromSection;
 }
 
-// try pulling numeric from entire raw text
 if (confidence == null) {
   const extracted = parseConfidenceFromText(raw);
   if (extracted != null) confidence = extracted;
 }
 
-// model-parsed numeric (if model returned JSON numbers)
 let parsedConfidence = null;
 if (parsed && (parsed.confidence || parsed.score || parsed.confidence_score || parsed.confidencePercent)) {
   const cand = parsed.confidence ?? parsed.score ?? parsed.confidence_score ?? parsed.confidencePercent;
@@ -307,39 +293,31 @@ if (parsed && (parsed.confidence || parsed.score || parsed.confidence_score || p
   if (Number.isFinite(num)) parsedConfidence = clamp(Math.round(num), 0, 100);
 }
 
-// Now compute heuristic once (cheap)
 const heuristic = heuristicConfidence(raw + (explanation || ""));
 
 if (confidence == null) {
   if (parsedConfidence != null) {
-    // combine
     let combined = Math.round(parsedConfidence * 0.7 + heuristic * 0.3);
 
-    // avoid runaway overconfidence: if model >> heuristic, bring it down
     if (parsedConfidence - heuristic > 40) {
       const gap = parsedConfidence - heuristic;
-      // reduce gap influence: allow at most +30 above heuristic in extreme cases
       combined = Math.round(heuristic + Math.min(30, Math.round(gap * 0.25)));
     }
 
     confidence = clamp(combined, 0, 100);
 
-    // debug log if model seems severely overconfident (helps when tuning)
     if (parsedConfidence >= 90 && heuristic <= 30) {
       console.warn("Model high confidence vs heuristic -- parsed:", parsedConfidence, "heuristic:", heuristic);
     }
   } else {
-    // no parsed numeric -> rely on conservative heuristic
     confidence = heuristic;
   }
 }
 
-// final guard: ensure numeric and in range
 confidence = clamp(Number.isFinite(Number(confidence)) ? Math.round(Number(confidence)) : heuristic, 0, 100);
 
   const details = detailsSection || shortExplanation || explanation || (raw || "").slice(0, 600);
 
-  // key findings
   let keyFindings = parseBulletLines(keyFindingsSection);
   if (!keyFindings.length) {
     if (Array.isArray(next_steps)) keyFindings = next_steps.map(String);
@@ -347,7 +325,6 @@ confidence = clamp(Number.isFinite(Number(confidence)) ? Math.round(Number(confi
     else keyFindings = [];
   }
 
-  // security recommendations & services as newline joined strings
   const securityRecommendationsLines = parseBulletLines(secRecsSection);
   const servicesLines = parseBulletLines(servicesSection);
 
@@ -369,7 +346,6 @@ confidence = clamp(Number.isFinite(Number(confidence)) ? Math.round(Number(confi
   return final;
 }
 
-// --- Routes ---
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "Lightning Guard Backend (no pdf-parse)", model: GEMINI_MODEL });
 });
@@ -431,7 +407,6 @@ app.post("/api/analyze-file", upload.array("files"), async (req, res) => {
   }
 });
 
-// --- Start server ---
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`⚡ Backend running at http://localhost:${PORT}`);

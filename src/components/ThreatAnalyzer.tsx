@@ -9,6 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, Shield, FileText, Zap, Paperclip } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+// ✅ Hardcoded backend for production
+const API_BASE = "https://lightning-guard-backend.onrender.com";
+
 interface AnalysisResult {
   threatLevel: "safe" | "warning" | "danger";
   confidence: number;
@@ -28,18 +31,15 @@ type FileWithPreview = {
 export const ThreatAnalyzer: React.FC = () => {
   const { toast } = useToast();
 
-  // states
   const [input, setInput] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [files, setFiles] = useState<FileWithPreview[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  // keep ref for cleanup on unmount
   const filesRef = useRef<FileWithPreview[]>([]);
   filesRef.current = files;
 
-  // clean up object URLs on unmount
   useEffect(() => {
     return () => {
       filesRef.current.forEach((f) => {
@@ -48,7 +48,6 @@ export const ThreatAnalyzer: React.FC = () => {
     };
   }, []);
 
-  // helpers
   const normalizeList = (v: any): string[] => {
     if (!v) return [];
     if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean);
@@ -61,7 +60,6 @@ export const ThreatAnalyzer: React.FC = () => {
     return [String(v)];
   };
 
-  // add selected files (multiple)
   const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fl = e.target.files;
     if (!fl || fl.length === 0) return;
@@ -76,17 +74,15 @@ export const ThreatAnalyzer: React.FC = () => {
       const merged = [...prev, ...next];
       const MAX_KEEP = 8;
       if (merged.length > MAX_KEEP) {
-        // revoke extras
         merged.slice(MAX_KEEP).forEach((m) => m.preview && URL.revokeObjectURL(m.preview));
         return merged.slice(0, MAX_KEEP);
       }
       return merged;
     });
-    // reset native input to allow re-selecting same file
+
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // remove file (revokes preview)
   const removeFile = (id: string) => {
     setFiles((prev) => {
       const toRemove = prev.find((p) => p.id === id);
@@ -95,7 +91,6 @@ export const ThreatAnalyzer: React.FC = () => {
     });
   };
 
-  // main analyze
   const handleAnalyze = async () => {
     const text = input || "";
     if (!text.trim() && files.length === 0) {
@@ -116,17 +111,14 @@ export const ThreatAnalyzer: React.FC = () => {
       if (files.length > 0) {
         const fd = new FormData();
         if (input.trim()) fd.append("text", input.trim());
-        files.forEach(f => fd.append("files", f.file)); 
+        files.forEach(f => fd.append("files", f.file));
 
-        // append as 'files' array
-        files.forEach((f) => fd.append("files", f.file));
-
-        const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
-        resp = await fetch(`${base}/api/analyze-file`, { method: "POST", body: fd });
-
+        resp = await fetch(`${API_BASE}/api/analyze-file`, {
+          method: "POST",
+          body: fd
+        });
       } else {
-        const base = import.meta.env.VITE_API_URL || "http://localhost:5000";
-        resp = await fetch(`${base}/api/analyze-text`, {
+        resp = await fetch(`${API_BASE}/api/analyze-text`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: text.trim() }),
@@ -137,9 +129,9 @@ export const ThreatAnalyzer: React.FC = () => {
         const txt = await resp.text().catch(() => "");
         throw new Error(txt || `Server returned ${resp.status}`);
       }
+
       const data = await resp.json();
 
-      // normalize response safely
       const recommendations = normalizeList(data.recommendations);
       const securityRecommendations = Array.isArray(data.securityRecommendations)
         ? (data.securityRecommendations as string[]).join("\n")
@@ -164,9 +156,6 @@ export const ThreatAnalyzer: React.FC = () => {
         variant: analysisResult.threatLevel === "danger" ? "destructive" : "default",
       });
 
-      // optional: clear files after successful analyze (comment/uncomment as you prefer)
-      // files.forEach(f => f.preview && URL.revokeObjectURL(f.preview));
-      // setFiles([]);
     } catch (err: any) {
       console.error("Analyze error:", err);
       toast({
@@ -234,7 +223,6 @@ export const ThreatAnalyzer: React.FC = () => {
                   onChange={(e) => setInput(e.target.value)}
                 />
 
-                {/* paperclip at bottom-left (opens OS file picker) */}
                 <label
                   htmlFor="lg-file"
                   className="cursor-pointer absolute left-3 bottom-3 z-20 p-1"
@@ -254,7 +242,6 @@ export const ThreatAnalyzer: React.FC = () => {
                 />
               </div>
 
-              {/* previews (small thumbnails / file cards) */}
               {files.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-3">
                   {files.map((f) => (
@@ -268,7 +255,6 @@ export const ThreatAnalyzer: React.FC = () => {
                           src={f.preview}
                           alt={f.file.name}
                           className="h-16 w-full object-cover block"
-                          // clicking the image removes as requested
                           onClick={() => removeFile(f.id)}
                         />
                       ) : (
@@ -285,8 +271,6 @@ export const ThreatAnalyzer: React.FC = () => {
                           </div>
                         </div>
                       )}
-
-                      {/* cross button on hover (also removes) */}
                       <button
                         onClick={() => removeFile(f.id)}
                         aria-label="Remove file"

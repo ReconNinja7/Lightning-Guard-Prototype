@@ -29,10 +29,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 if (!process.env.GEMINI_API_KEY) {
   console.warn("⚠️ GEMINI_API_KEY not set in .env — set GEMINI_API_KEY to call Gemini.");
 }
-const genAI = new GoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  apiEndpoint: "https://generativelanguage.googleapis.com/v1"
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 let GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
 function getModel() {
   return genAI.getGenerativeModel({ model: GEMINI_MODEL });

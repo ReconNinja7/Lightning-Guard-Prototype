@@ -367,7 +367,8 @@ app.post("/api/analyze-text", async (req, res) => {
       GEMINI_MODEL = "gemini-1.5-flash-latest";
       return res.status(503).json({ ok: false, error: "Quota exceeded on PRO, switched to FLASH. Retry shortly." });
     }
-    return res.status(500).json({ error: "Failed to analyze text" });
+    console.error("Error in /api/analyze-text:", err?.message || err);
+return res.status(500).json({ error: err?.message || "Failed to analyze text" });
   }
 });
 

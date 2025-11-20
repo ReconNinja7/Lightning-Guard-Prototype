@@ -411,6 +411,15 @@ app.post("/api/analyze-file", upload.array("files"), async (req, res) => {
   }
 });
 
+app.get("/__lg_debug_env", (req, res) => {
+  res.json({
+    gemini_model_env: process.env.GEMINI_MODEL ?? null,
+    gemini_api_key_present: !!process.env.GEMINI_API_KEY,
+    gemini_api_key_length: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0,
+    apiEndpoint_in_code: "https://generativelanguage.googleapis.com/v1"
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`⚡ Backend running at http://localhost:${PORT}`);

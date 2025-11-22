@@ -1,73 +1,131 @@
-# Welcome to your Lovable project
+# ⚡ Lightning Guard  
+AI‑Powered Threat Detection & Analysis Platform  
 
-## Project info
+![Demo Badge](https://img.shields.io/badge/AI-Google%20Gemini-blue?logo=googlecloud)  
+![Hosting Badge](https://img.shields.io/badge/Frontend-Firebase-orange?logo=firebase)  
+![Backend Badge](https://img.shields.io/badge/Backend-Render-green)  
+![Status Badge](https://img.shields.io/badge/Status-Hackathon%20Prototype-success)
 
-**URL**: https://lovable.dev/projects/fa473deb-105c-4ab1-99a7-f1e166fdc805
+---
 
-## How can I edit this code?
+## 🚀 Overview
+**Lightning Guard** is a Generative‑AI powered security tool designed to detect phishing, scams, malware indicators, and other online threats in **text, documents, and images**.  
+It leverages the **Google Gemini API**, OCR (Tesseract.js), and document parsing (Mammoth) to provide structured threat analysis with confidence scores, recommendations, and quick reporting services.  
 
-There are several ways of editing your application.
+Deployed for the **Gen AI Exchange Hackathon**.
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/fa473deb-105c-4ab1-99a7-f1e166fdc805) and start prompting.
+## ✨ Features
+- Upload **Text, Documents, and Images** for analysis  
+- **Google Gemini API** for AI‑driven threat intelligence  
+- **OCR (Tesseract.js)** to extract text from images  
+- **Mammoth.js** to parse `.docx` files  
+- Classifies content into: **Safe / Warning / Danger**  
+- Provides:
+  - Confidence Score (0‑100)  
+  - Threat Category (Phishing, Malware, Scam, Spam, Fraud…)  
+  - Key Findings & Security Recommendations  
+  - Services to Report Threats  
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+## 🏗️ Architecture
+```plaintext
+Frontend (React + Vite + Tailwind)
+   │  Hosted on Firebase Hosting
+   ▼
+Backend (Node.js + Express)
+   │  Hosted on Render
+   │
+   ├── Gemini API (Google Generative AI)
+   ├── Tesseract.js (OCR for images)
+   └── Mammoth.js (Docx parsing)
 ```
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🌐 Live Demo
+- **Frontend (Firebase):** [https://lightning-guard.web.app](https://lightning-guard.web.app)  
+- **Backend (Render):** [https://lightning-guard-backend.onrender.com](https://lightning-guard-backend.onrender.com)  
+  (integrated into frontend, no separate login needed)  
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🛠️ Tech Stack
+- **Frontend:** React + Vite + TailwindCSS  
+- **Backend:** Node.js (Express) + Multer (file upload) + CORS  
+- **AI/ML:** Google Gemini API (`gemini-1.5-flash`), Tesseract.js, Mammoth.js  
+- **Hosting & Deployment:** Firebase Hosting (Frontend), Render (Backend API)  
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## ⚙️ Installation (Local Development)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+1. **Clone Repo**
+   ```bash
+   git clone https://github.com/<your-username>/lightning-guard.git
+   cd lightning-guard
+   ```
 
-## How can I deploy this project?
+2. **Setup Backend**
+   ```bash
+   cd backend
+   npm install
+   # Create .env file
+   GEMINI_API_KEY=your-google-gemini-key
+   GEMINI_MODEL=gemini-1.5-flash
 
-Simply open [Lovable](https://lovable.dev/projects/fa473deb-105c-4ab1-99a7-f1e166fdc805) and click on Share -> Publish.
+   npm start
+   ```
 
-## Can I connect a custom domain to my Lovable project?
+   The backend will start at `http://localhost:5000`.
 
-Yes, you can!
+3. **Setup Frontend**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+   Frontend runs at `http://localhost:5173`.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+---
+
+## ☁️ Deployment
+- **Frontend Deployment** to Firebase:
+  ```bash
+  npm run build
+  firebase deploy --only hosting
+  ```
+
+- **Backend Deployment** to Render:
+  - Link repo → Select root directory → Build command: `npm install` → Start command: `npm start`  
+  - Add environment variables in Render dashboard:  
+    - `GEMINI_API_KEY=your-api-key`  
+    - `GEMINI_MODEL=gemini-1.5-flash`
+
+---
+
+## 💰 Estimated Cost
+- **Prototype (Hackathon):** $0 → Free tiers (Firebase Spark, Render Free, Gemini free quota)  
+- **Production:** ~$30–$60/month  
+  - Firebase Blaze ($25–30)  
+  - Render Hobby Instance ($7/month)  
+  - Gemini API (usage‑based: $10–20 depending on traffic)  
+
+---
+
+## 📌 Future Scope
+- Real‑time **browser/email security plugin**  
+- Integration with **corporate dashboards & SOC teams**  
+- Expand to analyze **PDFs** (via pdf‑parse)  
+- Add database (Firestore/Postgres) for threat logs & reports  
+- Multi‑lingual threat detection for global use cases  
+
+---
+
+## 👥 Team
+- Built by **Team Scrutiny** 🛡️ for the *Gen AI Exchange Hackathon*.  
+- Contributors: Md Farhan Hussain, Arthik Kumar
+

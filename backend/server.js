@@ -10,6 +10,7 @@ import path from "path";
 import os from "os";
 
 dotenv.config();
+console.log("🔥 GEMINI API KEY SEEN BY BACKEND:", process.env.GEMINI_API_KEY);
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+<<<<<<< HEAD
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 let GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
@@ -56,6 +58,19 @@ async function callGemini(promptText) {
 
   const json = await r.json();
   return json?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+=======
+if (!process.env.GEMINI_API_KEY) {
+  console.warn("⚠️ GEMINI_API_KEY not set in .env — set GEMINI_API_KEY to call Gemini.");
+}
+const genAI = new GoogleGenerativeAI({
+  apiKey: "AIzaSyC5YThDELlpBMG8Z66sSNq4K20GCbyzFag",
+  apiEndpoint: "https://generativelanguage.googleapis.com/v1beta"
+});
+
+let GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
+function getModel() {
+  return genAI.getGenerativeModel({ model: GEMINI_MODEL });
+>>>>>>> bcafb9d1a206a9266b1e77789caf5936ebf237f4
 }
 
 const clamp = (n, a = 0, b = 100) => Math.max(a, Math.min(b, n));
@@ -262,10 +277,23 @@ ${textToAnalyze}
 `.trim();
 }
 
+<<<<<<< HEAD
   async function analyzePromptAndReturnStructured(prompt) {
     const raw = await callGemini(prompt);
     console.log("=== Gemini raw output ===\n", raw, "\n=== end raw ===");
 
+=======
+async function analyzePromptAndReturnStructured(prompt) {
+  const model = getModel();
+  const result = await model.generateContent({
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.2 }
+  });
+
+  const raw = extractRawTextFromResult(result);
+  console.log("=== Gemini raw output ===\n", raw, "\n=== end raw ===");
+
+>>>>>>> bcafb9d1a206a9266b1e77789caf5936ebf237f4
   let parsed = null;
   try { parsed = JSON.parse(raw); } catch (_) { parsed = null; }
 
@@ -425,6 +453,18 @@ app.post("/api/analyze-file", upload.array("files"), async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
+=======
+app.get("/__lg_debug_env", (req, res) => {
+  res.json({
+    gemini_model_env: process.env.GEMINI_MODEL ?? null,
+    gemini_api_key_present: !!process.env.GEMINI_API_KEY,
+    gemini_api_key_length: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0,
+    apiEndpoint_in_code: "https://generativelanguage.googleapis.com/v1"
+  });
+});
+
+>>>>>>> bcafb9d1a206a9266b1e77789caf5936ebf237f4
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`⚡ Backend running at http://localhost:${PORT}`);

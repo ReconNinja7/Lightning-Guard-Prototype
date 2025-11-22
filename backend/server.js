@@ -9,69 +9,96 @@ import fsPromises from "fs/promises";
 import path from "path";
 import os from "os";
 
+// If you're on Node 18+ (Render default), global fetch exists.
+// If not, uncomment this line and `npm i node-fetch`:
+// import fetch from "node-fetch";
+
 dotenv.config();
-console.log("🔥 GEMINI API KEY SEEN BY BACKEND:", process.env.GEMINI_API_KEY);
 
 const app = express();
 
-app.use(cors({
-  origin: "https://lightning-guard.web.app",
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"]
-}));
+app.use(
+  cors({
+    origin: "https://lightning-guard.web.app",
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
 
 app.options("*", cors());
-
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-<<<<<<< HEAD
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+/* ==============================
+   GEMINI CONFIG (REST v1)
+============================== */
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 let GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 if (!GEMINI_API_KEY) {
-  console.warn("❌ No GEMINI_API_KEY set — AI disabled");
+  console.warn("❌ GEMINI_API_KEY is NOT set. Gemini calls will fail.");
+} else {
+  console.log("✅ GEMINI_API_KEY loaded. Using model:", GEMINI_MODEL);
 }
 
-async function callGemini(promptText) {
+// Single function that calls Gemini REST v1 (same as your working curl)
+async function callGeminiGenerateContent(promptText) {
+  if (!GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY not configured on server");
+  }
+
   const url = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
   const body = {
     contents: [
       {
         role: "user",
-        parts: [{ text: promptText }]
-      }
-    ]
+        parts: [{ text: promptText }],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.2,
+    },
   };
 
-  const r = await fetch(url, {
+  const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
 
-  if (!r.ok) {
-    throw new Error(await r.text());
+  const text = await resp.text();
+
+  if (!resp.ok) {
+    console.error("❌ Gemini HTTP error:", resp.status, text);
+    const err = new Error(`Gemini API error ${resp.status}`);
+    err.status = resp.status;
+    err.body = text;
+    throw err;
   }
 
-  const json = await r.json();
-  return json?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-=======
-if (!process.env.GEMINI_API_KEY) {
-  console.warn("⚠️ GEMINI_API_KEY not set in .env — set GEMINI_API_KEY to call Gemini.");
-}
-const genAI = new GoogleGenerativeAI({
-  apiKey: "AIzaSyC5YThDELlpBMG8Z66sSNq4K20GCbyzFag",
-  apiEndpoint: "https://generativelanguage.googleapis.com/v1beta"
-});
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    console.warn("⚠️ Gemini returned non-JSON text, using raw output");
+    return text;
+  }
 
-let GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
-function getModel() {
-  return genAI.getGenerativeModel({ model: GEMINI_MODEL });
->>>>>>> bcafb9d1a206a9266b1e77789caf5936ebf237f4
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const combined = parts
+    .map((p) => (p.text || "").toString())
+    .join("\n")
+    .trim();
+
+  return combined || text;
 }
+
+/* ==============================
+   HELPER FUNCTIONS (YOUR LOGIC)
+============================== */
 
 const clamp = (n, a = 0, b = 100) => Math.max(a, Math.min(b, n));
 
@@ -83,7 +110,8 @@ function classifyThreatLevel(confidence) {
 
 function guessCategoryFromText(text) {
   const t = (text || "").toLowerCase();
-  if (/\b(phish|phishing|credential|login|password|verify|suspended|account)\b/.test(t)) return "Phishing";
+  if (/\b(phish|phishing|credential|login|password|verify|suspended|account)\b/.test(t))
+    return "Phishing";
   if (/\b(malware|trojan|ransomware|virus|exploit)\b/.test(t)) return "Malware";
   if (/\b(scams|fraud|donation|payment)\b/.test(t)) return "Fraud";
   if (/\b(spam)\b/.test(t)) return "Spam";
@@ -102,8 +130,13 @@ const SECTION_NAMES = [
 
 function extractSection(text, name) {
   if (!text) return "";
-  const safeNames = SECTION_NAMES.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  const pattern = new RegExp(`${name}\\s*:\\s*([\\s\\S]*?)(?:\\n\\s*(?:${safeNames})\\s*:|$)`, "i");
+  const safeNames = SECTION_NAMES.map((s) =>
+    s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  ).join("|");
+  const pattern = new RegExp(
+    `${name}\\s*:\\s*([\\s\\S]*?)(?:\\n\\s*(?:${safeNames})\\s*:|$)`,
+    "i"
+  );
   const m = text.match(pattern);
   return m ? m[1].trim() : "";
 }
@@ -112,15 +145,18 @@ function parseBulletLines(block) {
   if (!block) return [];
   const lines = block
     .split(/\r?\n/)
-    .map(s => s.trim())
+    .map((s) => s.trim())
     .filter(Boolean)
-    .map(s => s.replace(/^[-•*]\s*/, ""))
-    .map(s => s.replace(/^\d+\s*[.)]\s*/, ""))
-    .map(s => s.trim())
+    .map((s) => s.replace(/^[-•*]\s*/, ""))
+    .map((s) => s.replace(/^\d+\s*[.)]\s*/, ""))
+    .map((s) => s.trim())
     .filter(Boolean);
 
   if (lines.length <= 1 && / - /.test(block)) {
-    return block.split(/ - /).map(s => s.trim()).filter(Boolean);
+    return block
+      .split(/ - /)
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
   return lines;
 }
@@ -138,42 +174,39 @@ function parseConfidenceFromText(text) {
 
 function heuristicConfidence(text) {
   const t = (text || "").toLowerCase();
-  let score = 4; 
+  let score = 4;
 
   const keywords = [
-    "login","password","verify","urgent","suspended","bank","account",
-    "credit","ssn","click","reset","payment","confirm","credential"
+    "login",
+    "password",
+    "verify",
+    "urgent",
+    "suspended",
+    "bank",
+    "account",
+    "credit",
+    "ssn",
+    "click",
+    "reset",
+    "payment",
+    "confirm",
+    "credential",
   ];
 
   let hits = 0;
   for (const k of keywords) {
     if (t.includes(k)) hits++;
   }
-  score += Math.min(36, hits * 6); 
+  score += Math.min(36, hits * 6);
 
   const urlHits = (t.match(/https?:\/\/[^\s]+/g) || []).length;
-  score += Math.min(30, urlHits * 8); // up to +30
+  score += Math.min(30, urlHits * 8);
 
   if (t.length > 1200) score += 5;
   else if (t.length > 600) score += 2;
 
   const normalized = Math.round(score * 0.88);
   return clamp(normalized, 0, 100);
-}
-
-function extractRawTextFromResult(result) {
-  try {
-    if (!result) return "";
-    if (result?.response && typeof result.response.text === "function") {
-      return result.response.text();
-    }
-    if (result?.response?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      return result.response.candidates[0].content.parts[0].text;
-    }
-    return typeof result === "string" ? result : JSON.stringify(result);
-  } catch (e) {
-    return String(result ?? "");
-  }
 }
 
 async function extractTextFromFileObject(file) {
@@ -183,7 +216,8 @@ async function extractTextFromFileObject(file) {
   try {
     // DOCX
     if (
-      mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      mimetype ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       nameLower.endsWith(".docx")
     ) {
       try {
@@ -199,14 +233,17 @@ async function extractTextFromFileObject(file) {
     if (mimetype.startsWith("text/") || nameLower.endsWith(".txt")) {
       try {
         return buffer.toString("utf-8").trim();
-      } catch (e) {
+      } catch {
         return "";
       }
     }
 
+    // Images → OCR
     if (mimetype.startsWith("image/") || nameLower.match(/\.(png|jpe?g|bmp|webp)$/)) {
       const ext = path.extname(originalname) || ".png";
-      const tmpName = `lg_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
+      const tmpName = `lg_${Date.now()}_${Math.random()
+        .toString(36)
+        .slice(2)}${ext}`;
       const tmpPath = path.join(os.tmpdir(), tmpName);
       try {
         await fsPromises.writeFile(tmpPath, buffer);
@@ -217,17 +254,23 @@ async function extractTextFromFileObject(file) {
         console.warn("OCR failed for", originalname, e?.message || e);
         return "";
       } finally {
-        try { await fsPromises.unlink(tmpPath); } catch {}
+        try {
+          await fsPromises.unlink(tmpPath);
+        } catch {
+          // ignore
+        }
       }
     }
 
+    // PDFs not supported yet
     if (mimetype === "application/pdf" || nameLower.endsWith(".pdf")) {
       return "";
     }
 
+    // Fallback: try UTF-8
     try {
       return buffer.toString("utf-8").trim();
-    } catch (e) {
+    } catch {
       return "";
     }
   } catch (err) {
@@ -277,34 +320,45 @@ ${textToAnalyze}
 `.trim();
 }
 
-<<<<<<< HEAD
-  async function analyzePromptAndReturnStructured(prompt) {
-    const raw = await callGemini(prompt);
-    console.log("=== Gemini raw output ===\n", raw, "\n=== end raw ===");
+/* ==============================
+   MAIN ANALYSIS PIPELINE
+============================== */
 
-=======
 async function analyzePromptAndReturnStructured(prompt) {
-  const model = getModel();
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.2 }
-  });
-
-  const raw = extractRawTextFromResult(result);
+  const raw = await callGeminiGenerateContent(prompt);
   console.log("=== Gemini raw output ===\n", raw, "\n=== end raw ===");
 
->>>>>>> bcafb9d1a206a9266b1e77789caf5936ebf237f4
   let parsed = null;
-  try { parsed = JSON.parse(raw); } catch (_) { parsed = null; }
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = null;
+  }
 
   let confidence = null;
   let explanation = null;
   let next_steps = null;
 
   if (parsed && typeof parsed === "object") {
-    confidence = parsed.confidence ?? parsed.confidence_score ?? parsed.score ?? parsed.confidencePercent;
-    explanation = parsed.explanation ?? parsed.reasoning ?? parsed.details ?? parsed.summary ?? "";
-    next_steps = parsed.key_findings ?? parsed.keyFindings ?? parsed.recommendations ?? parsed.next_steps ?? parsed.actions ?? parsed.advice ?? parsed.suggestions;
+    confidence =
+      parsed.confidence ??
+      parsed.confidence_score ??
+      parsed.score ??
+      parsed.confidencePercent;
+    explanation =
+      parsed.explanation ??
+      parsed.reasoning ??
+      parsed.details ??
+      parsed.summary ??
+      "";
+    next_steps =
+      parsed.key_findings ??
+      parsed.keyFindings ??
+      parsed.recommendations ??
+      parsed.next_steps ??
+      parsed.actions ??
+      parsed.advice ??
+      parsed.suggestions;
   }
 
   if (typeof confidence === "string") {
@@ -321,61 +375,92 @@ async function analyzePromptAndReturnStructured(prompt) {
   const shortExplanation = extractSection(raw, "Short Explanation");
   const categorySection = extractSection(raw, "Threat Category");
 
-const confFromSection = parseConfidenceFromText(confSection);
-if (confFromSection != null) {
-  confidence = confFromSection;
-}
-
-if (confidence == null) {
-  const extracted = parseConfidenceFromText(raw);
-  if (extracted != null) confidence = extracted;
-}
-
-let parsedConfidence = null;
-if (parsed && (parsed.confidence || parsed.score || parsed.confidence_score || parsed.confidencePercent)) {
-  const cand = parsed.confidence ?? parsed.score ?? parsed.confidence_score ?? parsed.confidencePercent;
-  const num = Number(cand);
-  if (Number.isFinite(num)) parsedConfidence = clamp(Math.round(num), 0, 100);
-}
-
-const heuristic = heuristicConfidence(raw + (explanation || ""));
-
-if (confidence == null) {
-  if (parsedConfidence != null) {
-    let combined = Math.round(parsedConfidence * 0.7 + heuristic * 0.3);
-
-    if (parsedConfidence - heuristic > 40) {
-      const gap = parsedConfidence - heuristic;
-      combined = Math.round(heuristic + Math.min(30, Math.round(gap * 0.25)));
-    }
-
-    confidence = clamp(combined, 0, 100);
-
-    if (parsedConfidence >= 90 && heuristic <= 30) {
-      console.warn("Model high confidence vs heuristic -- parsed:", parsedConfidence, "heuristic:", heuristic);
-    }
-  } else {
-    confidence = heuristic;
+  const confFromSection = parseConfidenceFromText(confSection);
+  if (confFromSection != null) {
+    confidence = confFromSection;
   }
-}
 
-confidence = clamp(Number.isFinite(Number(confidence)) ? Math.round(Number(confidence)) : heuristic, 0, 100);
+  if (confidence == null) {
+    const extracted = parseConfidenceFromText(raw);
+    if (extracted != null) confidence = extracted;
+  }
 
-  const details = detailsSection || shortExplanation || explanation || (raw || "").slice(0, 600);
+  let parsedConfidence = null;
+  if (
+    parsed &&
+    (parsed.confidence ||
+      parsed.score ||
+      parsed.confidence_score ||
+      parsed.confidencePercent)
+  ) {
+    const cand =
+      parsed.confidence ??
+      parsed.score ??
+      parsed.confidence_score ??
+      parsed.confidencePercent;
+    const num = Number(cand);
+    if (Number.isFinite(num)) parsedConfidence = clamp(Math.round(num), 0, 100);
+  }
+
+  const heuristic = heuristicConfidence(raw + (explanation || ""));
+
+  if (confidence == null) {
+    if (parsedConfidence != null) {
+      let combined = Math.round(parsedConfidence * 0.7 + heuristic * 0.3);
+
+      if (parsedConfidence - heuristic > 40) {
+        const gap = parsedConfidence - heuristic;
+        combined = Math.round(
+          heuristic + Math.min(30, Math.round(gap * 0.25))
+        );
+      }
+
+      confidence = clamp(combined, 0, 100);
+
+      if (parsedConfidence >= 90 && heuristic <= 30) {
+        console.warn(
+          "Model high confidence vs heuristic -- parsed:",
+          parsedConfidence,
+          "heuristic:",
+          heuristic
+        );
+      }
+    } else {
+      confidence = heuristic;
+    }
+  }
+
+  confidence = clamp(
+    Number.isFinite(Number(confidence))
+      ? Math.round(Number(confidence))
+      : heuristic,
+    0,
+    100
+  );
+
+  const details =
+    detailsSection || shortExplanation || explanation || (raw || "").slice(0, 600);
 
   let keyFindings = parseBulletLines(keyFindingsSection);
   if (!keyFindings.length) {
     if (Array.isArray(next_steps)) keyFindings = next_steps.map(String);
-    else if (typeof next_steps === "string") keyFindings = parseBulletLines(next_steps);
+    else if (typeof next_steps === "string")
+      keyFindings = parseBulletLines(next_steps);
     else keyFindings = [];
   }
 
   const securityRecommendationsLines = parseBulletLines(secRecsSection);
   const servicesLines = parseBulletLines(servicesSection);
 
-  const explicitCategory = categorySection || (parsed && (parsed["Threat Category"] || parsed.category));
-  const categoryText = explicitCategory ? explicitCategory.split(/\r?\n/)[0].trim() : null;
-  const category = (categoryText && categoryText !== "") ? categoryText : guessCategoryFromText(raw || details);
+  const explicitCategory =
+    categorySection || (parsed && (parsed["Threat Category"] || parsed.category));
+  const categoryText = explicitCategory
+    ? explicitCategory.split(/\r?\n/)[0].trim()
+    : null;
+  const category =
+    categoryText && categoryText !== ""
+      ? categoryText
+      : guessCategoryFromText(raw || details);
 
   const final = {
     threatLevel: classifyThreatLevel(Number(confidence ?? 0)),
@@ -385,32 +470,40 @@ confidence = clamp(Number.isFinite(Number(confidence)) ? Math.round(Number(confi
     recommendations: keyFindings,
     securityRecommendations: securityRecommendationsLines.join("\n") || "None",
     services: servicesLines.join("\n") || "None",
-    rawModelOutput: raw
+    rawModelOutput: raw,
   };
 
   return final;
 }
 
+/* ==============================
+   ROUTES
+============================== */
+
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, service: "Lightning Guard Backend (no pdf-parse)", model: GEMINI_MODEL });
+  res.json({
+    ok: true,
+    service: "Lightning Guard Backend",
+    model: GEMINI_MODEL,
+  });
 });
 
 app.post("/api/analyze-text", async (req, res) => {
   try {
     const { text } = req.body;
-    if (!text || !String(text).trim()) return res.status(400).json({ error: "No text provided" });
+    if (!text || !String(text).trim()) {
+      return res.status(400).json({ error: "No text provided" });
+    }
 
     const prompt = MASTER_PROMPT(String(text).trim());
     const final = await analyzePromptAndReturnStructured(prompt);
     return res.json({ ok: true, result: final, ...final });
   } catch (err) {
     console.error("Error in /api/analyze-text:", err);
-    if (err?.status === 429 && GEMINI_MODEL !== "gemini-1.5-flash-latest") {
-      GEMINI_MODEL = "gemini-1.5-flash-latest";
-      return res.status(503).json({ ok: false, error: "Quota exceeded on PRO, switched to FLASH. Retry shortly." });
-    }
-    console.error("Error in /api/analyze-text:", err?.message || err);
-return res.status(500).json({ error: err?.message || "Failed to analyze text" });
+    const status = err?.status || 500;
+    return res
+      .status(status)
+      .json({ error: err?.message || "Failed to analyze text" });
   }
 });
 
@@ -433,16 +526,27 @@ app.post("/api/analyze-file", upload.array("files"), async (req, res) => {
           extractedText += `\n[File: ${file.originalname}] (no text extracted - supported: DOCX, TXT, IMAGE)\n`;
         }
       } catch (e) {
-        console.warn("extractTextFromFileObject failed for", file.originalname, e?.message || e);
+        console.warn(
+          "extractTextFromFileObject failed for",
+          file.originalname,
+          e?.message || e
+        );
         extractedText += `\n[File: ${file.originalname}] (error during extraction)\n`;
       }
     }
 
     const finalText = (textInput + "\n" + extractedText).trim();
-    if (!finalText) return res.status(400).json({ error: "No readable text extracted from input or files" });
+    if (!finalText) {
+      return res
+        .status(400)
+        .json({ error: "No readable text extracted from input or files" });
+    }
 
     const MAX_INPUT = 16000;
-    const safeText = finalText.length > MAX_INPUT ? (finalText.slice(0, MAX_INPUT) + "\n[TRUNCATED]") : finalText;
+    const safeText =
+      finalText.length > MAX_INPUT
+        ? finalText.slice(0, MAX_INPUT) + "\n[TRUNCATED]"
+        : finalText;
 
     const prompt = MASTER_PROMPT(safeText);
     const final = await analyzePromptAndReturnStructured(prompt);
@@ -453,18 +557,16 @@ app.post("/api/analyze-file", upload.array("files"), async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-=======
+// Optional debug endpoint
 app.get("/__lg_debug_env", (req, res) => {
   res.json({
-    gemini_model_env: process.env.GEMINI_MODEL ?? null,
-    gemini_api_key_present: !!process.env.GEMINI_API_KEY,
-    gemini_api_key_length: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0,
-    apiEndpoint_in_code: "https://generativelanguage.googleapis.com/v1"
+    gemini_model_env: GEMINI_MODEL,
+    gemini_api_key_present: !!GEMINI_API_KEY,
+    gemini_api_key_length: GEMINI_API_KEY.length,
+    api_url_example: `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent`,
   });
 });
 
->>>>>>> bcafb9d1a206a9266b1e77789caf5936ebf237f4
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`⚡ Backend running at http://localhost:${PORT}`);

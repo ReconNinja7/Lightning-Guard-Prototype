@@ -9,7 +9,6 @@ import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, Shield, FileText, Zap, Paperclip } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-// ✅ Hardcoded backend for production
 const API_BASE = "https://lightning-guard-backend.onrender.com";
 
 interface AnalysisResult {

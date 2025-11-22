@@ -8,7 +8,6 @@ import Tesseract from "tesseract.js";
 import fsPromises from "fs/promises";
 import path from "path";
 import os from "os";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
 
@@ -26,13 +25,37 @@ app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-if (!process.env.GEMINI_API_KEY) {
-  console.warn("⚠️ GEMINI_API_KEY not set in .env — set GEMINI_API_KEY to call Gemini.");
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+let GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+if (!GEMINI_API_KEY) {
+  console.warn("❌ No GEMINI_API_KEY set — AI disabled");
 }
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-let GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
-function getModel() {
-  return genAI.getGenerativeModel({ model: GEMINI_MODEL });
+
+async function callGemini(promptText) {
+  const url = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+  const body = {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: promptText }]
+      }
+    ]
+  };
+
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  if (!r.ok) {
+    throw new Error(await r.text());
+  }
+
+  const json = await r.json();
+  return json?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
 
 const clamp = (n, a = 0, b = 100) => Math.max(a, Math.min(b, n));
@@ -239,15 +262,9 @@ ${textToAnalyze}
 `.trim();
 }
 
-async function analyzePromptAndReturnStructured(prompt) {
-  const model = getModel();
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.2 }
-  });
-
-  const raw = extractRawTextFromResult(result);
-  console.log("=== Gemini raw output ===\n", raw, "\n=== end raw ===");
+  async function analyzePromptAndReturnStructured(prompt) {
+    const raw = await callGemini(prompt);
+    console.log("=== Gemini raw output ===\n", raw, "\n=== end raw ===");
 
   let parsed = null;
   try { parsed = JSON.parse(raw); } catch (_) { parsed = null; }
@@ -360,11 +377,12 @@ app.post("/api/analyze-text", async (req, res) => {
     return res.json({ ok: true, result: final, ...final });
   } catch (err) {
     console.error("Error in /api/analyze-text:", err);
-    if (err?.status === 429 && GEMINI_MODEL !== "gemini-1.5-flash") {
-      GEMINI_MODEL = "gemini-1.5-flash";
+    if (err?.status === 429 && GEMINI_MODEL !== "gemini-1.5-flash-latest") {
+      GEMINI_MODEL = "gemini-1.5-flash-latest";
       return res.status(503).json({ ok: false, error: "Quota exceeded on PRO, switched to FLASH. Retry shortly." });
     }
-    return res.status(500).json({ error: "Failed to analyze text" });
+    console.error("Error in /api/analyze-text:", err?.message || err);
+return res.status(500).json({ error: err?.message || "Failed to analyze text" });
   }
 });
 
